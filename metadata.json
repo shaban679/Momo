@@ -1,0 +1,6 @@
+{
+  "name": "Momo",
+  "description": "Instagram-style social media app for East Africa with stories, reels, feed, chat, and Swahili & English support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

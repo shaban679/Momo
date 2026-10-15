@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: momo-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-momo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-momo_secret_password}
+      POSTGRES_DB: ${POSTGRES_DB:-momo_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-momo_user} -d ${POSTGRES_DB:-momo_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: momo-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-momo_redis_password}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-momo_redis_password}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: momo-api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-4000}:4000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-momo_user}:${POSTGRES_PASSWORD:-momo_secret_password}@postgres:5432/${POSTGRES_DB:-momo_db}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:-momo_redis_password}@redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-momo_super_secure_access_secret_key_east_africa}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-momo_super_secure_refresh_secret_key_east_africa}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 30d
+      CORS_ORIGIN: "*"
+    volumes:
+      - ./apps/api:/usr/src/app/apps/api
+      - ./packages:/usr/src/app/packages
+      - /usr/src/app/node_modules
+
+volumes:
+  postgres_data:
+  redis_data:
